@@ -1,37 +1,43 @@
+#PostgreSQL adapter for Python
 import psycopg2
-import os
+#Library for reading and writing CSV files
 import csv
-from datetime import datetime
+
 # Constants for table names
 TABLE_NAMES = [
     "Location","Merchant","Cardholder", "Transaction", 
     "City", "Date", "Amount", "AgeGroup", "Zip_Code"
 ]
 
-# Getting connection to the PostgreSQL Database
+# Function to get connection to the PostgreSQL Database
 def sql_connect():
     try:
         conn = psycopg2.connect(
-            dbname="mydb",
-            user="postgres",
-            password="1234qwer",
+            dbname="mydb", #database name
+            user="postgres", #username
+            password="1234qwer", #password
             host="localhost",
             port="5432"
         )
+        #Checking if the Databse has connected
         print("Database Connected")
-        # Creating tables if they don't exist
+
+        # Creating tables and foreign key constraints if they don't exist
         create_tables(conn)
-        # add_foreign_key_constraints(conn)
+        add_foreign_key(conn)
         return conn
+    
+    #Error Handling if you can't connect to the database
     except psycopg2.Error as e: 
-        print("Unable to connect to the database")
+        print("Cannot connect to the database")
         print(e)
         return None
-def add_foreign_key_constraints(conn):
+    
+def add_foreign_key(conn):
     try:
         cur = conn.cursor()
 
-        # Foreign key constraint for Transaction table referencing Cardholder table
+        # Transaction table referencing Cardholder table
         query = """
         ALTER TABLE Transaction
         ADD CONSTRAINT FK_Transaction_Cardholder
@@ -39,7 +45,7 @@ def add_foreign_key_constraints(conn):
         """
         cur.execute(query)
 
-        # Foreign key constraint for Transaction table referencing Merchant table
+        # Transaction table referencing Merchant table
         query = """
         ALTER TABLE Transaction
         ADD CONSTRAINT FK_Transaction_Merchant
@@ -47,7 +53,7 @@ def add_foreign_key_constraints(conn):
         """
         cur.execute(query)
 
-        # Foreign key constraint for Cardholder table referencing Location table
+        # Cardholder table referencing Location table
         query = """
         ALTER TABLE Cardholder
         ADD CONSTRAINT FK_Cardholder_Location
@@ -55,7 +61,7 @@ def add_foreign_key_constraints(conn):
         """
         cur.execute(query)
 
-        # Foreign key constraint for Transaction table referencing Amount table
+        # Transaction table referencing Amount table
         query = """
         ALTER TABLE Transaction
         ADD CONSTRAINT fk_transaction_amount
@@ -63,9 +69,12 @@ def add_foreign_key_constraints(conn):
         ON UPDATE CASCADE;
         """
         cur.execute(query)
-
         conn.commit()
+
+
         print("Foreign key constraints added successfully.")
+
+        #Error Handling for Adding Foreign Constraints
     except psycopg2.Error as e:
         conn.rollback()
         if "already exists" in str(e):  # Check if the constraint already exists
@@ -74,7 +83,8 @@ def add_foreign_key_constraints(conn):
             print("Error adding foreign key constraints:")
             print(e)
 
-# Function to create tables if they don't exist
+
+# Function to create tables
 def create_tables(conn):
     try:
         cur = conn.cursor()
@@ -153,6 +163,8 @@ def create_tables(conn):
         conn.rollback()
         print("Error creating tables:")
         print(e)
+
+
 # Function to execute SQL query
 def execute_query(conn, query, fetch_results=True):
     try:
@@ -162,13 +174,11 @@ def execute_query(conn, query, fetch_results=True):
             rows = cur.fetchall()
             for row in rows:
                 print(row)
-        if query.strip().upper().startswith('SELECT'):
-            print("Query executed successfully")
         elif query.strip().upper().startswith('COMMIT'):
             print("Transaction committed successfully")
         else:
             print("Query executed successfully")
-        # conn.commit()
+
     except psycopg2.Error as e:
         conn.rollback()  # Rollback
         print("Error executing query:")
@@ -221,16 +231,16 @@ def error_handling(e,conn):
     print("Rolling back changes...")
     conn.rollback()
 
-# Function to read CSV file and insert data into Cardholder table
+# Function to read CSV file and insert data into Tables into the SQL database
 def insert_transaction_data_from_csv(conn, csv_file_path):
     try:
         with open(csv_file_path, 'r') as file:
             reader = csv.reader(file)
             for row in reader:
 
-                #Location
-                # lat= row[0]
-                # long = row[1]
+                # Location
+                lat= row[0]
+                long = row[1]
 
                 # #Cardholder
                 # cc_num = row[0]
@@ -281,7 +291,7 @@ def insert_transaction_data_from_csv(conn, csv_file_path):
 
 
                 # # Inserting data into Cardholer table
-                # insert_data(conn, "Location", "Lat, Long", f"'{lat}', '{long}'")
+                insert_data(conn, "Location", "Lat, Long", f"'{lat}', '{long}'")
                 # insert_data(conn, "Cardholder", "cc_num, first, last, gender, street, city, state, zip, lat, long, city_pop, job, dob",f"'{cc_num}', '{first}', '{last}', '{gender}', '{street}', '{city}', '{state}', '{zip}', '{lat}', '{long}', '{city_pop}', '{job}', '{dob}'")
                 # insert_data(conn, "Merchant", "Merchant, Merch_lat, Merch_long", f"'{Merchant}', '{Merch_lat}', '{Merch_long}'")
                 # insert_data(conn, "Transaction", "Trans_num, trans_date_trans_time, cc_num, merchant, category, amt, unix_time, is_fraud", f"'{trans_num}', '{trans_date_trans_time}', '{cc_num}', '{merchant}', '{category}', '{amt}', '{unix_time}', '{is_fraud}'")
@@ -316,20 +326,20 @@ def main():
             print("Please Try Again")
             continue
 
-        if select == "1":
+        if select == "1": #Insert
             table_name = input("Enter table name: ")
             columns = input("Enter column names: ")
             values = input("Enter values: ")
             insert_data(conn, table_name, columns, values)
             execute_query(conn, 'COMMIT')  # Commit after inserting data
 
-        elif select == "2":
+        elif select == "2": #Delete
             table_name = input("Enter table name: ")
             condition = input("Enter condition: ")
             delete_data(conn, table_name, condition)
             execute_query(conn, 'COMMIT')  # Commit after inserting data
 
-        elif select == "3":
+        elif select == "3": #Update
             table_name = input("Enter table name: ")
             column = input("Enter column to update: ")
             new_value = input("Enter new value: ")
@@ -337,47 +347,47 @@ def main():
             update_data(conn, table_name, column, new_value, condition)
             execute_query(conn, 'COMMIT')  # Commit after inserting data
 
-        elif select == "4":
+        elif select == "4": #Search
             table_name = input("Enter table name: ")
             condition = input("Enter condition: ")
             search_data(conn, table_name, condition)
 
-        elif select == "5":
+        elif select == "5": #Aggregation
             table_name = input("Enter Table Name:")
             column = input("Enter column: ")
             function = input("Enter Function (SUM, AVG, COUNT, MIN, MAX): ")
             aggregate_functions(conn, column, table_name, function)
-
-        elif select == "6":
+ 
+        elif select == "6": #Sort
             table_name = input("Enter table name: ")
             column = input("Enter column name: ")
             order = input("Enter sorting order (ASC/DESC): ")
             sorting(conn, table_name, column, order)
 
-        elif select == "7":
+        elif select == "7": #Joins
             table1 = input("Enter first table name: ")
             table2 = input("Enter second table name: ")
             key = input("Enter join key: ")
             joins(conn, table1, table2, key)
 
-        elif select == "8":
+        elif select == "8": #Grouping
             table_name = input("Enter table name: ")
             column = input("Enter column name to group by: ")
             grouping(conn, table_name, column)
 
-        elif select == "9":
+        elif select == "9": #Subquery
             table_name = input("Enter table name: ")
             column = input("Enter column name: ")
             subquery = input("Enter subquery: ")
             subqueries(conn, table_name, column, subquery)
 
-        elif select == "10":
+        elif select == "10": #Transaction
             transactions(conn)
 
-        elif select == "11":
+        elif select == "11": #Error handling
             error_handling('Starting Error Handling..', conn)
 
-        elif select == "Import":
+        elif select == "Import": #Importing csv files to SQL
             csv_file_path = input("Path: ")
             insert_transaction_data_from_csv(conn, csv_file_path)            
 
